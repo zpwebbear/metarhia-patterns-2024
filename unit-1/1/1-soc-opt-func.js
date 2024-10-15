@@ -23,87 +23,140 @@ const data = `city,population,area,density,country
   Bangkok,8280925,1569,5279,Thailand`;
 
 
-function parseStringToTable(data) {
-  const NUMBER_COLUMN_INDEXES = [1, 2, 3];
-  const stringRows = data.split('\n');
-  const table = new Array(stringRows.length - 1);
+function convertCSVToTable(csvString) {
+  const tableStringRows = csvString.split('\n');
+  const normalizedTable = tableStringRows.map((row) => row.split(','));
+  const parsedTable = normalizedTable.map((row) => row.map((cell) => {
+    const parsedValue = Number(cell);
+    if (!isNaN(parsedValue)) {
+      return parsedValue;
+    }
+    return cell.trim();
+  }));
 
-  for (let i = 1; i < stringRows.length; i++) {
-    const rawRow = stringRows[i].split(',');
-    const row = rawRow.map((rawColumn, index) => {
-      if (NUMBER_COLUMN_INDEXES.includes(index)) {
-        return parseInt(rawColumn);
-      }
+  const tableHeader = parsedTable[0];
+  const tableBody = parsedTable.slice(1);
 
-      return rawColumn.trim();
-    });
-    table[i - 1] = row;
+  const table = new Array(tableBody.length);
+  for (let rowIndex = 0; rowIndex < tableBody.length; rowIndex++) {
+    const bodyRow = tableBody[rowIndex];
+    const row = {};
+    for (let columnIndex = 0; columnIndex < bodyRow.length; columnIndex++) {
+      const column = tableHeader[columnIndex];
+      row[column] = bodyRow[columnIndex];
+    }
+    table[rowIndex] = row;
   }
 
   return table;
 }
 
-function findMaxDensity(table) {
+function findMaxValueInColumn({ table, column }) {
   let max = 0;
 
   for (const row of table) {
-    const density = row[3];
-    if (density > max) {
-      max = density;
+    const value = row[column];
+    if (value > max) {
+      max = value;
     }
   }
 
   return max;
 }
 
-function addDensityRankColumn(table, max) {
+const createComputedDensityRankCallback =
+ (max) => (row) => Math.round(row['density'] * 100 / max);
+
+function addComputedColumn({ table, column, callback = () => undefined }) {
   const updatedTable = new Array(table.length);
 
   for (let i = 0; i < table.length; i++) {
     const row = table[i];
-    const updatedRow = Array.from(row);
-    const densityRank = Math.round(row[3] * 100 / max);
-    updatedRow.push(densityRank);
+    const updatedRow = Object.assign({}, row);
+    updatedRow[column] = callback(row);
     updatedTable[i] = updatedRow;
   }
 
   return updatedTable;
 }
 
-function sortTableByDensityRank(table) {
-  const densityColumnIndex = 5;
-  return table.toSorted(
-    (row1, row2) => row2[densityColumnIndex] - row1[densityColumnIndex],
-  );
+function sortTableByColumn({
+  table, column, sortFunction = (row1, row2) => row2[column] - row1[column],
+}) {
+  return table.toSorted(sortFunction);
 }
 
-function printTable(table) {
+function convertTableToPrintableString({
+  table, gap = 4, leftAlignedColumns = [],
+}) {
+  const sampleRow = table[0];
+  const columns = Object.keys(sampleRow);
+
+  const columnPaddings = columns.reduce((acc, key) => {
+    acc[key] = 0;
+    return acc;
+  }, {});
+
   for (const row of table) {
-    let s = row[0].toString().padEnd(18);
-    s += row[1].toString().padStart(10);
-    s += row[2].toString().padStart(8);
-    s += row[3].toString().padStart(8);
-    s += row[4].toString().padStart(18);
-    s += row[5].toString().padStart(6);
-    console.log(s);
+    const rowEntries = Object.entries(row);
+    for (const entries of rowEntries) {
+      const key = entries[0];
+      const value = entries[1].toString();
+      const padding = value.length + gap;
+      const existingPadding = columnPaddings[key];
+      columnPaddings[key] = padding > existingPadding
+        ? padding : existingPadding;
+    }
   }
+
+  let result = '';
+  for (const row of table) {
+    for (const column of columns) {
+      const columnPadding = columnPaddings[column];
+      if (leftAlignedColumns.includes(column)) {
+        result += row[column].toString().padEnd(columnPadding);
+      } else {
+        result += row[column].toString().padStart(columnPadding);
+      }
+    }
+    result += '\n';
+  }
+
+  return result;
 }
 
 function funcSolution(data) {
-  const table = parseStringToTable(data);
-  const maxDensity = findMaxDensity(table);
-  const tableWithDensityRank = addDensityRankColumn(table, maxDensity);
-  const sortedTable = sortTableByDensityRank(tableWithDensityRank);
-  printTable(sortedTable);
+  const table = convertCSVToTable(data);
+
+  const maxDensity = findMaxValueInColumn({ table, column: 'density' });
+
+  const callback = createComputedDensityRankCallback(maxDensity);
+  const tableWithDensityRank = addComputedColumn({
+    table,
+    column: 'rank',
+    callback,
+  });
+
+  const sortedTable = sortTableByColumn({
+    table: tableWithDensityRank,
+    column: 'rank',
+  });
+
+  const tableString = convertTableToPrintableString({
+    table: sortedTable, gap: 2, leftAlignedColumns: ['city'],
+  });
+
+  console.log(tableString);
 }
 
 funcSolution(data);
 
 
 module.exports = {
-  parseStringToTable,
-  findMaxDensity,
-  addDensityRankColumn,
-  sortTableByDensityRank,
-  printTable,
+  convertCSVToTable,
+  findMaxValueInColumn,
+  addComputedColumn,
+  sortTableByColumn,
+  convertTableToPrintableString,
+  createComputedDensityRankCallback,
 };
