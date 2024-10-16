@@ -23,7 +23,7 @@ const data = `city,population,area,density,country
   Bangkok,8280925,1569,5279,Thailand`;
 
 
-describe('1-soc-opt', () => {
+describe('1-soc-opt-func', () => {
   it(`convertCSVToTable should return array of Rows. 
     Each Row is an object with named columns`, () => {
     const table = convertCSVToTable(data);
@@ -100,7 +100,7 @@ describe('1-soc-opt', () => {
     assert(sortedTable[1]['city'], '5');
     assert(sortedTable[2]['city'], '3');
     assert(sortedTable[3]['city'], '2');
-    assert(sortedTable[3]['city'], '1');
+    assert(sortedTable[4]['city'], '1');
   });
 
   it('Table should be converted to pritable string', () => {
